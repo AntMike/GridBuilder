@@ -1,53 +1,151 @@
-﻿using System.Collections;
+﻿/* 
+    ------------------- Code Monkey -------------------
+
+    Thank you for downloading this package
+    I hope you find it useful in your projects
+    If you have any questions let me know
+    Cheers!
+
+               unitycodemonkey.com
+    --------------------------------------------------
+ */
+
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using CodeMonkey.Utils;
 
-public class BuildingGhost : MonoBehaviour {
+public class GridXZ<TGridObject> {
 
-    private Transform visual;
-    private PlacedObjectTypeSO placedObjectTypeSO;
-
-    private void Start() {
-        RefreshVisual();
-
-        GridBuildingSystem3D.Instance.OnSelectedChanged += Instance_OnSelectedChanged;
+    public event EventHandler<OnGridObjectChangedEventArgs> OnGridObjectChanged;
+    public class OnGridObjectChangedEventArgs : EventArgs {
+        public int x;
+        public int z;
     }
 
-    private void Instance_OnSelectedChanged(object sender, System.EventArgs e) {
-        RefreshVisual();
-    }
+    private int width;
+    private int height;
+    private float cellSize;
+    private Vector3 originPosition;
+    private TGridObject[,] gridArray;
+    private Transform _gridParent;
 
-    private void LateUpdate() {
-        Vector3 targetPosition = GridBuildingSystem3D.Instance.GetMouseWorldSnappedPosition();
-        targetPosition.y = 1f;
-        transform.position = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * 15f);
+    public GridXZ(int width, int height, float cellSize, Vector3 originPosition, Func<GridXZ<TGridObject>, int, int, TGridObject> createGridObject) {
+        this.width = width;
+        this.height = height;
+        this.cellSize = cellSize;
+        this.originPosition = originPosition;
 
-        transform.rotation = Quaternion.Lerp(transform.rotation, GridBuildingSystem3D.Instance.GetPlacedObjectRotation(), Time.deltaTime * 15f);
-    }
+        gridArray = new TGridObject[width, height];
+        _gridParent = new GameObject("Grid").transform;
 
-    private void RefreshVisual() {
-        if (visual != null) {
-            Destroy(visual.gameObject);
-            visual = null;
+        for (int x = 0; x < gridArray.GetLength(0); x++) {
+            for (int z = 0; z < gridArray.GetLength(1); z++) {
+                gridArray[x, z] = createGridObject(this, x, z);
+            }
         }
 
-        PlacedObjectTypeSO placedObjectTypeSO = GridBuildingSystem3D.Instance.GetPlacedObjectTypeSO();
+        bool showDebug = false;
+        if (showDebug) {
+            TextMesh[,] debugTextArray = new TextMesh[width, height];
 
-        if (placedObjectTypeSO != null) {
-            visual = Instantiate(placedObjectTypeSO.visual, Vector3.zero, Quaternion.identity);
-            visual.parent = transform;
-            visual.localPosition = Vector3.zero;
-            visual.localEulerAngles = Vector3.zero;
-            SetLayerRecursive(visual.gameObject, 11);
+            for (int x = 0; x < gridArray.GetLength(0); x++) {
+                for (int z = 0; z < gridArray.GetLength(1); z++) {
+                    debugTextArray[x, z] = UtilsClass.CreateWorldText(gridArray[x, z]?.ToString(), null, GetWorldPosition(x, z) + new Vector3(cellSize, 0, cellSize) * .5f, 15, Color.white, TextAnchor.MiddleCenter, TextAlignment.Center);
+                    
+                    DrawLine(GetWorldGridPosition(x, z), GetWorldGridPosition(x, z + 1), Color.white);
+                    DrawLine(GetWorldGridPosition(x, z), GetWorldGridPosition(x + 1, z), Color.white);
+                    Debug.DrawLine(GetWorldPosition(x, z), GetWorldPosition(x, z + 1), Color.white, 100f);
+                    Debug.DrawLine(GetWorldPosition(x, z), GetWorldPosition(x + 1, z), Color.white, 100f);
+                }
+            }
+            DrawLine(GetWorldGridPosition(0, height), GetWorldGridPosition(width, height), Color.white);
+            DrawLine(GetWorldGridPosition(width, 0), GetWorldGridPosition(width, height), Color.white);
+            Debug.DrawLine(GetWorldPosition(0, height), GetWorldPosition(width, height), Color.white, 100f);
+            Debug.DrawLine(GetWorldPosition(width, 0), GetWorldPosition(width, height), Color.white, 100f);
+
+            OnGridObjectChanged += (object sender, OnGridObjectChangedEventArgs eventArgs) => {
+                debugTextArray[eventArgs.x, eventArgs.z].text = gridArray[eventArgs.x, eventArgs.z]?.ToString();
+            };
         }
     }
 
-    private void SetLayerRecursive(GameObject targetGameObject, int layer) {
-        targetGameObject.layer = layer;
-        foreach (Transform child in targetGameObject.transform) {
-            SetLayerRecursive(child.gameObject, layer);
+    public int GetWidth() {
+        return width;
+    }
+
+    public int GetHeight() {
+        return height;
+    }
+    
+    private void DrawLine(Vector3 start, Vector3 end, Color color, float duration = 0.2f)
+    {
+        GameObject myLine = new GameObject("Line");
+        myLine.transform.parent = _gridParent;
+        myLine.transform.position = start;
+        myLine.AddComponent<LineRenderer>();
+        LineRenderer lr = myLine.GetComponent<LineRenderer>();
+        lr.material = new Material(Shader.Find("Unlit/Color"));
+        lr.SetColors(color, color);
+        lr.SetWidth(0.1f, 0.1f);
+        lr.SetPosition(0, start);
+        lr.SetPosition(1, end);
+        //GameObject.Destroy(myLine, duration);
+    }
+
+    public float GetCellSize() {
+        return cellSize;
+    }
+
+    public Vector3 GetWorldPosition(int x, int z) {
+        return new Vector3(x, 0, z) * cellSize + originPosition;
+    }
+    
+    public Vector3 GetWorldGridPosition(int x, int z) {
+        return new Vector3(x, 0, z) * cellSize + originPosition;
+    }
+
+    public void GetXZ(Vector3 worldPosition, out int x, out int z) {
+        x = Mathf.FloorToInt((worldPosition - originPosition).x / cellSize);
+        z = Mathf.FloorToInt((worldPosition - originPosition).z / cellSize);
+    }
+
+    public void SetGridObject(int x, int z, TGridObject value) {
+        if (x >= 0 && z >= 0 && x < width && z < height) {
+            gridArray[x, z] = value;
+            TriggerGridObjectChanged(x, z);
         }
+    }
+
+    public void TriggerGridObjectChanged(int x, int z) {
+        OnGridObjectChanged?.Invoke(this, new OnGridObjectChangedEventArgs { x = x, z = z });
+    }
+
+    public void SetGridObject(Vector3 worldPosition, TGridObject value) {
+        GetXZ(worldPosition, out int x, out int z);
+        SetGridObject(x, z, value);
+    }
+
+    public TGridObject GetGridObject(int x, int z) {
+        if (x >= 0 && z >= 0 && x < width && z < height) {
+            return gridArray[x, z];
+        } else {
+            return default(TGridObject);
+        }
+    }
+
+    public TGridObject GetGridObject(Vector3 worldPosition) {
+        int x, z;
+        GetXZ(worldPosition, out x, out z);
+        return GetGridObject(x, z);
+    }
+
+    public Vector2Int ValidateGridPosition(Vector2Int gridPosition) {
+        return new Vector2Int(
+            Mathf.Clamp(gridPosition.x, 0, width - 1),
+            Mathf.Clamp(gridPosition.y, 0, height - 1)
+        );
     }
 
 }
-
