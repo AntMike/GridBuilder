@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using CodeMonkey.Utils;
+using UnityEngine.EventSystems;
 
 public class GridBuildingSystem3D : MonoBehaviour {
 
@@ -10,6 +11,8 @@ public class GridBuildingSystem3D : MonoBehaviour {
 
     public event EventHandler OnSelectedChanged;
     public event EventHandler OnObjectPlaced;
+
+    private bool _canBuild = true;
 
 
     private GridXZ<GridObject> grid;
@@ -68,6 +71,9 @@ public class GridBuildingSystem3D : MonoBehaviour {
     }
 
     private void Update() {
+        if(!_canBuild) return;
+        if(EventSystem.current.IsPointerOverGameObject()) return;
+        
         if (Input.GetMouseButtonDown(0) && placedObjectTypeSO != null) {
             Vector3 mousePosition = Mouse3D.GetMouseWorldPosition();
             grid.GetXZ(mousePosition, out int x, out int z);
@@ -134,6 +140,19 @@ public class GridBuildingSystem3D : MonoBehaviour {
                 }
             }
         }
+    }
+
+    public void SwitchToPerson()
+    {
+        _canBuild = false;
+        DeselectObjectType();
+        grid._gridParent.gameObject.SetActive(false);
+    }
+
+    public void SwitchToBuild()
+    {
+        _canBuild = true;
+        grid._gridParent.gameObject.SetActive(true);
     }
 
     private void DeselectObjectType() {
