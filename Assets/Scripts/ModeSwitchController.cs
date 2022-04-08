@@ -13,6 +13,7 @@ public class ModeSwitchController : MonoBehaviour
     [SerializeField] private CinemachineVirtualCamera playerCamera;
     [SerializeField] private MouseHandler mouseHandler;
     [SerializeField] private PlayerController playerController;
+    [SerializeField] private CameraTarget cameraTarget;
 
     [SerializeField] private TMP_Text text;
 
@@ -40,6 +41,7 @@ public class ModeSwitchController : MonoBehaviour
         Cursor.lockState = CursorLockMode.Confined;
         GridBuildingSystem3D.Instance.SwitchToPerson();
         Mouse3D.Instance.canCalculate = false;
+        cameraTarget.canMove = false;
         mouseHandler.canMove = true;
         playerController.canMove = true;
         playerCamera.Priority = 10;
@@ -53,6 +55,7 @@ public class ModeSwitchController : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         GridBuildingSystem3D.Instance.SwitchToBuild();
         Mouse3D.Instance.canCalculate = true;
+        cameraTarget.canMove = true;
         mouseHandler.canMove = false;
         playerController.canMove = false;
         playerCamera.Priority = 1;

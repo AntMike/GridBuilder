@@ -13,9 +13,13 @@ public class CameraTarget : MonoBehaviour {
     [SerializeField] private Axis axis = Axis.XZ;
     [SerializeField] private float moveSpeed = 50f;
 
+    public bool canMove = true;
+
 
 
     private void Update() {
+        if(!canMove) return;
+        
         float moveX = 0f;
         float moveY = 0f;
 
